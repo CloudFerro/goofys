@@ -106,11 +106,11 @@ func GetLogger(name string) *LogHandle {
 
 	if logger, ok := loggers[name]; ok {
 		return logger
-	} else {
-		logger := NewLogger(name)
-		loggers[name] = logger
-		return logger
 	}
+	logger := NewLogger(name)
+	loggers[name] = logger
+	return logger
+
 }
 
 func GetStdLogger(l *LogHandle, lvl logrus.Level) *glog.Logger {

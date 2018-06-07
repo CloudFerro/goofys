@@ -112,9 +112,9 @@ func CompareReader(r1, r2 io.Reader) (int, error) {
 	nread2, err := r2.Read(buf2[:])
 	if nread2 == 0 || err == io.ErrUnexpectedEOF {
 		return -1, nil
-	} else {
-		return nread2, err
 	}
+	return nread2, err
+
 }
 
 func (s *BufferTest) TestMBuf(t *C) {

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/jacobsa/fuse"
@@ -100,9 +101,9 @@ func (inode *Inode) OpenDir() (dh *DirHandle) {
 		} else {
 			parent.dir.seqOpenDirScore = 0
 			parent.dir.lastOpenDirIdx = parent.findChildIdxUnlocked(*inode.Name)
-			if parent.dir.lastOpenDirIdx == -1 {
-				panic(fmt.Sprintf("%v is not under %v", *inode.Name, *parent.FullName()))
-			}
+			// if parent.dir.lastOpenDirIdx == -1 {
+			// 	panic(fmt.Sprintf("%v is not under %v", *inode.Name, *parent.FullName()))
+			// }
 		}
 
 		parent.dir.lastOpenDir = inode.Name
@@ -240,20 +241,37 @@ func (dh *DirHandle) listObjects(prefix string) (resp *s3.ListObjectsOutput, err
 		errSlurpChan <- fuse.EINVAL
 	}
 
+	ls := func(p *s3.ListObjectsInput) (s3.ListObjectsOutput, error) {
+		for {
+			resp, err := fs.s3.ListObjects(p)
+			if err == nil {
+				return *resp, err
+			}
+
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awsErr.Message() != "send request failed" {
+					return *resp, err
+				}
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}
+
 	listObjectsFlat := func() {
 		params := &s3.ListObjectsInput{
 			Bucket:       &fs.bucket,
 			Delimiter:    aws.String("/"),
 			Marker:       dh.Marker,
+			MaxKeys:      aws.Int64((*fs.flags).MaxKeys),
 			Prefix:       &prefix,
 			EncodingType: aws.String("url"),
 		}
 
-		resp, err := fs.s3.ListObjects(params)
+		resp, err := ls(params)
 		if err != nil {
 			errListChan <- err
 		} else {
-			listChan <- *resp
+			listChan <- resp
 		}
 	}
 
